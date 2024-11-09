@@ -17,6 +17,10 @@ enum Cli {
         #[structopt(long)]
         input: String,
     },
+    Challenge4 {
+        #[structopt(long)]
+        file: String,
+    },
 }
 
 fn decode_hex(hex: &str) -> Vec<u8> {
@@ -86,7 +90,7 @@ fn english_score(x: &[u8]) -> f64 {
     score
 }
 
-fn crack_single_byte_xor(input: &[u8], from: u8, to: u8) -> u8 {
+fn crack_single_byte_xor(input: &[u8], from: u8, to: u8) -> (u8, f64) {
     let mut best_key = from;
     let mut best_score = 0.0;
     for key in from..=to {
@@ -97,7 +101,7 @@ fn crack_single_byte_xor(input: &[u8], from: u8, to: u8) -> u8 {
             best_key = key;
         }
     }
-    best_key
+    (best_key, best_score)
 }
 
 fn xor_single_byte(input: &[u8], key: u8) -> Vec<u8> {
@@ -119,11 +123,32 @@ fn main() {
         }
         Cli::Challenge3 { input } => {
             let bytes = decode_hex(&input);
-            let key = crack_single_byte_xor(&bytes, b'A', b'Z');
+            let (key, _score) = crack_single_byte_xor(&bytes, b'A', b'Z');
             println!("{}", key as char);
             println!(
                 "{}",
                 String::from_utf8(xor_single_byte(&bytes, key)).unwrap()
+            );
+        }
+        Cli::Challenge4 { file } => {
+            let contents = std::fs::read_to_string(file).unwrap();
+            let mut best_score = 0.0;
+            let mut best_key = 0;
+            let mut best_line = String::new();
+            for line in contents.lines() {
+                let bytes = decode_hex(line);
+                let (key, score) = crack_single_byte_xor(&bytes, 0, 0xfe);
+                if score > best_score {
+                    best_score = score;
+                    best_key = key;
+                    best_line = line.to_string();
+                }
+            }
+            println!("{}", best_key as char);
+            println!("{}", best_line);
+            println!(
+                "{}",
+                String::from_utf8(xor_single_byte(&decode_hex(&best_line), best_key)).unwrap()
             );
         }
     }
