@@ -25,6 +25,10 @@ enum Cli {
         #[structopt(long)]
         file: String,
     },
+    Challenge6 {
+        #[structopt(long)]
+        file: String,
+    },
 }
 
 fn decode_hex(hex: &str) -> Vec<u8> {
@@ -119,6 +123,19 @@ fn xor_repeatedkey(a: &[u8], key: &[u8]) -> Vec<u8> {
         .collect()
 }
 
+fn hamming(a: &[u8], b: &[u8]) -> u8 {
+    let n = a.len();
+    let mut result: u8 = 0;
+    for i in 0..n {
+        let mut xor = a[i] ^ b[i];
+        while xor != 0 {
+            result += xor & 1;
+            xor = xor >> 1;
+        }
+    }
+    return result;
+}
+
 fn main() {
     let args = Cli::from_args();
     match args {
@@ -166,6 +183,10 @@ fn main() {
             let contents = std::fs::read_to_string(file).unwrap();
             let xor = xor_repeatedkey(contents.as_bytes(), "ICE".as_bytes());
             println!("{}", encode_hex(&xor));
+        }
+        Cli::Challenge6 { file: _file } => {
+            let h = hamming("this is a test".as_bytes(), "wokka wokka!!!".as_bytes());
+            println!("{}", h)
         }
     }
 }
