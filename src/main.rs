@@ -21,6 +21,10 @@ enum Cli {
         #[structopt(long)]
         file: String,
     },
+    Challenge5 {
+        #[structopt(long)]
+        file: String,
+    },
 }
 
 fn decode_hex(hex: &str) -> Vec<u8> {
@@ -108,6 +112,13 @@ fn xor_single_byte(input: &[u8], key: u8) -> Vec<u8> {
     input.iter().map(|byte| byte ^ key).collect()
 }
 
+fn xor_repeatedkey(a: &[u8], key: &[u8]) -> Vec<u8> {
+    a.iter()
+        .zip(key.iter().cycle())
+        .map(|(x, y)| x ^ y)
+        .collect()
+}
+
 fn main() {
     let args = Cli::from_args();
     match args {
@@ -150,6 +161,11 @@ fn main() {
                 "{}",
                 String::from_utf8(xor_single_byte(&decode_hex(&best_line), best_key)).unwrap()
             );
+        }
+        Cli::Challenge5 { file } => {
+            let contents = std::fs::read_to_string(file).unwrap();
+            let xor = xor_repeatedkey(contents.as_bytes(), "ICE".as_bytes());
+            println!("{}", encode_hex(&xor));
         }
     }
 }
