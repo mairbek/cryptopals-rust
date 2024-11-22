@@ -136,6 +136,22 @@ fn hamming(a: &[u8], b: &[u8]) -> u8 {
     return result;
 }
 
+fn to_transposed_2d_array(input: &[u8], block_size: usize) -> Vec<Vec<u8>> {
+    let row_count = input.len() / block_size; // Calculate the number of rows
+    let mut transposed = vec![vec![0u8; row_count]; block_size]; // Preallocate transposed array
+
+    for (i, &val) in input.iter().enumerate() {
+        if i >= row_count * block_size {
+            break;
+        }
+        let row = i / block_size;
+        let col = i % block_size;
+        transposed[col][row] = val; // Assign directly to the transposed position
+    }
+
+    transposed
+}
+
 fn main() {
     let args = Cli::from_args();
     match args {
@@ -184,9 +200,40 @@ fn main() {
             let xor = xor_repeatedkey(contents.as_bytes(), "ICE".as_bytes());
             println!("{}", encode_hex(&xor));
         }
-        Cli::Challenge6 { file: _file } => {
-            let h = hamming("this is a test".as_bytes(), "wokka wokka!!!".as_bytes());
-            println!("{}", h)
+        Cli::Challenge6 { file } => {
+            let contents = std::fs::read_to_string(file).unwrap();
+            let content_decoded = BASE64_STANDARD.decode(contents.replace("\n", "")).unwrap();
+            let mut scores: Vec<(u8, f32)> = Vec::new();
+            for key_size in 2..=40 {
+                let mut score = 0.0;
+                let num_blocks = 4;
+                for i in 0..num_blocks {
+                    let a = &content_decoded[i * key_size..(i + 1) * key_size];
+                    let b = &content_decoded[(i + 1) * key_size..(i + 2) * key_size];
+                    score += (hamming(a, b) as f32) / (key_size as f32);
+                }
+                score /= num_blocks as f32;
+                scores.push((key_size as u8, score));
+            }
+            scores.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+            let mut key_scores: Vec<(Vec<u8>, f64)> = Vec::new();
+            for i in 0..4 {
+                let (m, _score) = scores[i];
+                let min_key_size = m as usize;
+                let t = to_transposed_2d_array(&content_decoded, min_key_size);
+                let mut keys: Vec<u8> = Vec::new();
+                let mut total_score = 0.0;
+                for i in 0..min_key_size {
+                    let (key, score) = crack_single_byte_xor(&t[i], 0, 0xfe);
+                    keys.push(key);
+                    total_score += score;
+                }
+                key_scores.push((keys, total_score / min_key_size as f64));
+            }
+            key_scores.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+            let v = xor_repeatedkey(&content_decoded, &key_scores[0].0);
+            println!("{}", String::from_utf8(v).unwrap());
         }
     }
 }
