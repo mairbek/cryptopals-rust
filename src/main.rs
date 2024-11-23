@@ -1,6 +1,7 @@
 use aes::cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
 use aes::Aes128;
 use base64::prelude::*;
+use std::cmp::min;
 use std::collections::HashSet;
 use structopt::StructOpt;
 
@@ -45,6 +46,12 @@ enum Cli {
     Challenge9 {
         #[structopt(long)]
         unpadded: String,
+    },
+    Challenge10 {
+        #[structopt(long)]
+        file: String,
+        #[structopt(long)]
+        key: String,
     },
 }
 
@@ -306,6 +313,23 @@ fn main() {
         Cli::Challenge9 { unpadded } => {
             let padded = pkcs7_pad(unpadded.as_bytes(), 20);
             println!("{}", print_bytes(&padded));
+        }
+        Cli::Challenge10 { file, key } => {
+            let cipher = Aes128::new(GenericArray::from_slice(key.as_bytes()));
+            let contents = std::fs::read_to_string(file).unwrap();
+            let content_decoded = BASE64_STANDARD.decode(contents.replace("\n", "")).unwrap();
+            let mut result: Vec<u8> = Vec::new();
+            let mut previous = &content_decoded[0..16];
+            for i in 1..(content_decoded.len() / 16) {
+                let fr = i * 16;
+                let to = min((i + 1) * 16, content_decoded.len());
+                let mut block = GenericArray::from_iter(pkcs7_pad(&content_decoded[fr..to], 16));
+                cipher.decrypt_block(&mut block);
+                let xored = xor_bytes(&block, previous);
+                result.extend(xored);
+                previous = &content_decoded[fr..to];
+            }
+            println!("{}", String::from_utf8_lossy(&result));
         }
     }
 }
