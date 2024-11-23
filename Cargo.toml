@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 structopt = { version = "0.3", default-features = false }
 base64 = "0.21"                                           # Replace with the latest version
+aes = "0.8.4"

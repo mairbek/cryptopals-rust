@@ -1,3 +1,5 @@
+use aes::cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
+use aes::Aes128;
 use base64::prelude::*;
 use structopt::StructOpt;
 
@@ -28,6 +30,12 @@ enum Cli {
     Challenge6 {
         #[structopt(long)]
         file: String,
+    },
+    Challenge7 {
+        #[structopt(long)]
+        file: String,
+        #[structopt(long)]
+        key: String,
     },
 }
 
@@ -234,6 +242,20 @@ fn main() {
             key_scores.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
             let v = xor_repeatedkey(&content_decoded, &key_scores[0].0);
             println!("{}", String::from_utf8(v).unwrap());
+        }
+        Cli::Challenge7 { file, key } => {
+            let cipher = Aes128::new(GenericArray::from_slice(key.as_bytes()));
+            let contents = std::fs::read_to_string(file).unwrap();
+            let content_decoded = BASE64_STANDARD.decode(contents.replace("\n", "")).unwrap();
+            // todo(mairbek) split content to blocks and encode each block 1 by 1.
+            let mut result: Vec<u8> = Vec::new();
+            for i in 1..content_decoded.len() / 16 {
+                let mut block =
+                    GenericArray::clone_from_slice(&content_decoded[i * 16..(i + 1) * 16]);
+                cipher.decrypt_block(&mut block);
+                result.extend(&block);
+            }
+            println!("{}", String::from_utf8_lossy(&result));
         }
     }
 }
