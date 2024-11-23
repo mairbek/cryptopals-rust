@@ -247,7 +247,6 @@ fn main() {
             let cipher = Aes128::new(GenericArray::from_slice(key.as_bytes()));
             let contents = std::fs::read_to_string(file).unwrap();
             let content_decoded = BASE64_STANDARD.decode(contents.replace("\n", "")).unwrap();
-            // todo(mairbek) split content to blocks and encode each block 1 by 1.
             let mut result: Vec<u8> = Vec::new();
             for i in 1..content_decoded.len() / 16 {
                 let mut block =
