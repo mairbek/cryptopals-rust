@@ -1,6 +1,7 @@
 use aes::cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
 use aes::Aes128;
 use base64::prelude::*;
+use std::collections::HashSet;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -36,6 +37,14 @@ enum Cli {
         file: String,
         #[structopt(long)]
         key: String,
+    },
+    Challenge8 {
+        #[structopt(long)]
+        file: String,
+    },
+    Challenge9 {
+        #[structopt(long)]
+        unpadded: String,
     },
 }
 
@@ -144,6 +153,17 @@ fn hamming(a: &[u8], b: &[u8]) -> u8 {
     return result;
 }
 
+fn count_repeated_blocks(a: &[u8], block_size: usize) -> usize {
+    let mut set = HashSet::new();
+    let mut repeated = 0;
+    for chunk in a.chunks(block_size) {
+        if !set.insert(chunk) {
+            repeated += 1;
+        }
+    }
+    return repeated;
+}
+
 fn to_transposed_2d_array(input: &[u8], block_size: usize) -> Vec<Vec<u8>> {
     let row_count = input.len() / block_size; // Calculate the number of rows
     let mut transposed = vec![vec![0u8; row_count]; block_size]; // Preallocate transposed array
@@ -158,6 +178,24 @@ fn to_transposed_2d_array(input: &[u8], block_size: usize) -> Vec<Vec<u8>> {
     }
 
     transposed
+}
+
+fn pkcs7_pad(unpadded: &[u8], block_size: usize) -> Vec<u8> {
+    let padding = block_size - (unpadded.len() % block_size);
+    let mut padded = Vec::from(unpadded);
+    for _ in 0..padding {
+        padded.push(padding as u8);
+    }
+    padded
+}
+fn print_bytes(bytes: &[u8]) -> String {
+    use std::ascii::escape_default;
+
+    bytes
+        .iter()
+        .flat_map(|&b| escape_default(b))
+        .map(|b| b as char)
+        .collect()
 }
 
 fn main() {
@@ -255,6 +293,19 @@ fn main() {
                 result.extend(&block);
             }
             println!("{}", String::from_utf8_lossy(&result));
+        }
+        Cli::Challenge8 { file } => {
+            let contents = std::fs::read_to_string(file).unwrap();
+            for line in contents.lines() {
+                let count = count_repeated_blocks(&line.as_bytes(), 16);
+                if count > 0 {
+                    println!("{} {}", line, count);
+                }
+            }
+        }
+        Cli::Challenge9 { unpadded } => {
+            let padded = pkcs7_pad(unpadded.as_bytes(), 20);
+            println!("{}", print_bytes(&padded));
         }
     }
 }
